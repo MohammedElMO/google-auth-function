@@ -1,35 +1,69 @@
-import { Client, Users } from 'node-appwrite';
+import { Client, Users, Account, ID } from 'node-appwrite';
+import { OAuth2Client } from 'google-auth-library';
 
 // This Appwrite function will be executed every time your function is triggered
 export default async ({ req, res, log, error }) => {
   // You can use the Appwrite SDK to interact with other services
   // For this example, we're using the Users service
-  const client = new Client()
-    .setEndpoint(process.env.APPWRITE_FUNCTION_API_ENDPOINT)
-    .setProject(process.env.APPWRITE_FUNCTION_PROJECT_ID)
-    .setKey(req.headers['x-appwrite-key'] ?? '');
-  const users = new Users(client);
-
   try {
-    const response = await users.list();
-    // Log messages and errors to the Appwrite Console
-    // These logs won't be seen by your end users
-    log(`Total users: ${response.total}`);
-  } catch(err) {
-    error("Could not list users: " + err.message);
-  }
+    const { idToken } = JSON.parse(req.body);
+    const googleClientId = process.env.GOOGLE_CLIENT_ID;
 
-  // The req object contains the request data
-  if (req.path === "/ping") {
-    // Use res object to respond with text(), json(), or binary()
-    // Don't forget to return a response!
-    return res.text("Pong");
-  }
+    if (!idToken || !googleClientId) {
+      return res.json({ error: 'Missing idToken or client ID' }, 400);
+    }
 
-  return res.json({
-    motto: "Build like a team of hundreds_",
-    learn: "https://appwrite.io/docs",
-    connect: "https://appwrite.io/discord",
-    getInspired: "https://builtwith.appwrite.io",
-  });
+    const googleClient = new OAuth2Client(googleClientId);
+
+    const ticket = await googleClient.verifyIdToken({
+      idToken,
+      audience: googleClientId,
+    });
+
+    const payload = ticket.getPayload();
+    const email = payload?.email;
+    const name = payload?.name || 'Unknown';
+
+    if (!email) {
+      return res.json({ error: 'Email not found in Google token' }, 400);
+    }
+
+    const appwriteClient = new Client()
+      .setEndpoint(process.env.APPWRITE_FUNCTION_API_ENDPOINT)
+      .setProject(process.env.APPWRITE_FUNCTION_PROJECT_ID)
+      .setKey(process.env.APPWRITE_API_KEY);
+
+    const users = new Users(appwriteClient);
+    const account = new Account(appwriteClient);
+
+    // Check if user already exists
+    let user;
+    try {
+      user = await users.getUserByEmail(email);
+    } catch {
+      // Create user if not found
+      user = await users.create(
+        ID.unique(), // userId
+        email,
+        undefined, // phone
+        name
+      );
+    }
+    const MAGIC_PASSWORD =
+      process.env.MAGIC_PASSWORD || 'google_oauth_password';
+    try {
+      await account.deleteSessions(user.$id); // optional: clear old sessions
+    } catch {}
+
+    const session = await account.createEmailSession(email, MAGIC_PASSWORD);
+
+    return res.json({
+      success: true,
+      sessionId: session.$id,
+      userId: user.$id,
+      jwt: session.jwt,
+    });
+  } catch (err) {
+    return res.json({ error: err.message }, 500);
+  }
 };
