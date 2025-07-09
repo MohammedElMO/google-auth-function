@@ -24,6 +24,8 @@ export default async ({ req, res, log, error }) => {
     const email = payload?.email;
     const name = payload?.name || 'Unknown';
 
+    log({ payload, email, name });
+
     if (!email) {
       return res.json({ error: 'Email not found in Google token' }, 400);
     }
@@ -56,7 +58,12 @@ export default async ({ req, res, log, error }) => {
     } catch {}
 
     const session = await account.createEmailSession(email, MAGIC_PASSWORD);
-
+    log({
+      success: true,
+      sessionId: session.$id,
+      userId: user.$id,
+      jwt: session.jwt,
+    });
     return res.json({
       success: true,
       sessionId: session.$id,
