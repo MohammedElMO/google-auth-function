@@ -47,17 +47,18 @@ export default async ({ req, res, log, error }) => {
       user = await users.create(
         ID.unique(), // userId
         email,
-        undefined, // phone
+        undefined,
+        process.env.MAGIC_PASSWORD,
         name
       );
     }
     const MAGIC_PASSWORD =
       process.env.MAGIC_PASSWORD || 'google_oauth_password';
-    try {
-      await account.deleteSessions(user.$id); // optional: clear old sessions
-    } catch {}
 
-    const session = await account.createEmailSession(email, MAGIC_PASSWORD);
+    const session = await account.createEmailPasswordSession(
+      email,
+      MAGIC_PASSWORD
+    );
     log({
       success: true,
       sessionId: session.$id,
