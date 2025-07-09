@@ -59,6 +59,10 @@ export default async ({ req, res, log, error }) => {
       email,
       MAGIC_PASSWORD
     );
+	
+
+	const json = await account.createJWT()
+	
     log({
       success: true,
       sessionId: session.$id,
@@ -69,7 +73,7 @@ export default async ({ req, res, log, error }) => {
       success: true,
       sessionId: session.$id,
       userId: user.$id,
-      jwt: session.jwt,
+      jwt: json.jwt,
     });
   } catch (err) {
     return res.json({ error: err.message }, 500);
