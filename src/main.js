@@ -42,6 +42,12 @@ export default async ({ req, res, log, error }) => {
         process.env.FAILED_URL,
         (session = {}) // No extra scopes
       );
+	  log({
+      sessionId: session.$id,
+      userId: session.userId,
+      providerUid: session.providerUid,
+      emailVerified: session.emailVerification === true,
+    });
       return res.send({
         sessionId: session.$id,
         userId: session.userId,
