@@ -29,51 +29,48 @@ export default async ({ req, res, log, error }) => {
       return res.json({ error: 'Invalid Google ID token' });
     }
 
-    const email = payload.email;
-    const name = payload.name || '';
-    const googleUid = payload.sub;
+    const email = payload?.email;
+    const name = payload?.name || '';
+    const googleUserId = payload?.sub;
 
     const appwriteClient = new Client()
       .setEndpoint(process.env.APPWRITE_FUNCTION_API_ENDPOINT)
       .setProject(process.env.APPWRITE_FUNCTION_PROJECT_ID)
       .setKey(process.env.APPWRITE_API_KEY);
 
-    const users = new Users(appwriteClient);
-    let appwriteUser;
+    const users = Users(appwriteClient);
+
+    let appwriteUserId;
+
+    // 2. Find or create user in Appwrite
     try {
-      // If you use Google UID as the Appwrite User ID (optional)
-      appwriteUser = await users.get(googleUid);
-    } catch {
-      // User not found – create new user
-      try {
-        appwriteUser = await users.create(
-          googleUid,
+      // Try to get user by ID (using Google User ID as Appwrite User ID)
+      const appwriteUser = await users.get(googleUserId);
+      appwriteUserId = appwriteUser.$id;
+    } catch (error) {
+      if (error.code === 404) {
+        // User not found, create new
+        console.log('Appwrite user not found, creating new...');
+        const newUser = await users.create(
+          googleUserId, // Use Google User ID as Appwrite User ID
           email,
-          null, // No password for OAuth
-          null,
+          null, // No password needed for custom token auth
           name
         );
-      } catch (createErr) {
-        console.error('Failed to create Appwrite user:', createErr);
-        return res.json({
-          error: 'User creation failed',
-          detail: createErr.message,
-        });
+        appwriteUserId = newUser.$id;
+      } else {
+        throw error; // Re-throw other errors
       }
     }
 
-    log({
-      sessionId: appwriteUser.$id,
-      email: appwriteUser.userId,
-      name: appwriteUser.name,
-      status: 'verified',
-    });
+    // 3. Generate Appwrite custom token
+    const token = await users.createToken(appwriteUserId);
 
-    return res.json({
-      userId: appwriteUser.$id,
-      email: appwriteUser.email,
-      name: appwriteUser.name,
-      status: 'verified',
+    // 4. Send token secret back to Android app
+    res.json({
+      success: true,
+      appwriteUserId: appwriteUserId,
+      tokenSecret: token.secret,
     });
   } catch (e) {
     return res.json({
