@@ -39,7 +39,7 @@ export default async ({ req, res, log, error }) => {
     let oauthToken;
     try {
       oauthToken = await account.createOAuth2Token(
-        'google',
+        OAuthProvider.Google,
         process.env.SUCCESS_URL,
         process.env.FAILED_URL,
         []
@@ -51,6 +51,11 @@ export default async ({ req, res, log, error }) => {
 
     const { userId, secret } = oauthToken;
 
+	if (!userId || !secret) {
+    return res
+      .status(500)
+      .json({ error: 'Missing userId or secret from token' });
+  }
     try {
       const response = await fetch(
         `${process.env.APPWRITE_FUNCTION_API_ENDPOINT}/account/sessions/token`,
