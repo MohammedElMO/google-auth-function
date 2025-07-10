@@ -5,7 +5,7 @@ import { JWT, OAuth2Client } from 'google-auth-library';
 export default async ({ req, res, log, error }) => {
   // You can use the Appwrite SDK to interact with other services
   // For this example, we're using the Users service
-  res.setHeader('Content-Type', 'application/json');
+//   res.setHeader('Content-Type', 'application/json');
 
   try {
     const { idToken } = JSON.parse(req.body);
