@@ -47,12 +47,12 @@ export default async ({ req, res, log, error }) => {
         }
       );
 
-      const sessionData = await response.json();
+      const session = await response.json();
       if (!response.ok) {
-        console.error('Appwrite OAuth2 error:', sessionData);
+        console.error('Appwrite OAuth2 error:', session);
         return res.json({
           error: 'Failed to create session',
-          details: sessionData,
+          details: session,
         });
       }
 	  
