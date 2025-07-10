@@ -27,27 +27,41 @@ export default async ({ req, res, log, error }) => {
       return res.json({ error: 'Invalid Google ID token' });
     }
 
-
     const appwriteClient = new Client()
       .setEndpoint(process.env.APPWRITE_FUNCTION_API_ENDPOINT)
       .setProject(process.env.APPWRITE_FUNCTION_PROJECT_ID)
       .setKey(process.env.APPWRITE_API_KEY);
 
-    const account = new Account(appwriteClient);
+    // const account = new Account(appwriteClient);
 
     try {
-      const session = await account.createOAuth2Session(
-        OAuthProvider.Google,
-        process.env.SUCCESS_URL,
-        process.env.FAILED_URL,
-        (session = {}) // No extra scopes
+      const response = await fetch(
+        `${process.env.APPWRITE_FUNCTION_API_ENDPOINT}/account/sessions/oauth2/google`,
+        {
+          method: 'POST',
+          headers: {
+            'X-Appwrite-Project': process.env.APPWRITE_FUNCTION_PROJECT_ID,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ idToken }),
+        }
       );
-	  log({
-      sessionId: session.$id,
-      userId: session.userId,
-      providerUid: session.providerUid,
-      emailVerified: session.emailVerification === true,
-    });
+
+      const sessionData = await response.json();
+      if (!response.ok) {
+        console.error('Appwrite OAuth2 error:', sessionData);
+        return res.json({
+          error: 'Failed to create session',
+          details: sessionData,
+        });
+      }
+	  
+      log({
+        sessionId: session.$id,
+        userId: session.userId,
+        providerUid: session.providerUid,
+        emailVerified: session.emailVerification === true,
+      });
       return res.json({
         sessionId: session.$id,
         userId: session.userId,
