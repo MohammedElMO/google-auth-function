@@ -24,7 +24,7 @@ export default async ({ req, res, log, error }) => {
       payload = ticket.getPayload();
     } catch (err) {
       console.error('Google token invalid:', err);
-      return res.status(401).send({ error: 'Invalid Google ID token' });
+      return res.json({ error: 'Invalid Google ID token' });
     }
 
 
@@ -48,7 +48,7 @@ export default async ({ req, res, log, error }) => {
       providerUid: session.providerUid,
       emailVerified: session.emailVerification === true,
     });
-      return res.send({
+      return res.json({
         sessionId: session.$id,
         userId: session.userId,
         providerUid: session.providerUid,
@@ -56,13 +56,13 @@ export default async ({ req, res, log, error }) => {
       });
     } catch (err) {
       console.error('Appwrite session error:', err);
-      return res.status(500).send({
+      return res.json({
         error: 'Failed to create Appwrite session',
         message: err.message,
       });
     }
   } catch (e) {
-    return res.status(500).send({
+    return res.json({
       error: `Failed To exec Function ${e}`,
       message: err.message,
     });
