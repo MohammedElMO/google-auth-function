@@ -51,6 +51,7 @@ export default async ({ req, res, log, error }) => {
       if (error.code === 404) {
         // User not found, create new
         console.log('Appwrite user not found, creating new...');
+
         const newUser = await users.create(
           googleUserId, // Use Google User ID as Appwrite User ID
           email,
@@ -75,7 +76,7 @@ export default async ({ req, res, log, error }) => {
   } catch (e) {
     return res.json({
       error: `Failed To exec Function ${e}`,
-      message: err.message,
+      message: e.message,
     });
   }
 };
