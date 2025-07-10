@@ -5,6 +5,8 @@ import { JWT, OAuth2Client } from 'google-auth-library';
 export default async ({ req, res, log, error }) => {
   // You can use the Appwrite SDK to interact with other services
   // For this example, we're using the Users service
+  res.setHeader('Content-Type', 'application/json');
+
   try {
     const { idToken } = JSON.parse(req.body);
     const googleClientId = process.env.GOOGLE_CLIENT_ID;
@@ -32,30 +34,39 @@ export default async ({ req, res, log, error }) => {
       .setProject(process.env.APPWRITE_FUNCTION_PROJECT_ID)
       .setKey(process.env.APPWRITE_API_KEY);
 
-    // const account = new Account(appwriteClient);
+    const account = new Account(appwriteClient);
+
+    let oauthToken;
+    try {
+      oauthToken = await account.createOAuth2Token(
+        'google',
+        process.env.SUCCESS_URL,
+        process.env.FAILED_URL,
+        []
+      );
+    } catch (e) {
+      console.error('Error creating OAuth2 token:', e);
+      return res.json({ error: 'Failed to create OAuth2 token' });
+    }
+
+    const { userId, secret } = oauthToken;
 
     try {
       const response = await fetch(
-        `${process.env.APPWRITE_FUNCTION_API_ENDPOINT}/account/sessions/oauth2/google`,
+        `${process.env.APPWRITE_FUNCTION_API_ENDPOINT}/account/sessions/token`,
         {
           method: 'POST',
           headers: {
             'X-Appwrite-Project': process.env.APPWRITE_FUNCTION_PROJECT_ID,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ idToken }),
+          body: JSON.stringify({ userId, secret }),
         }
       );
 
       const session = await response.json();
-      if (!response.ok) {
-        console.error('Appwrite OAuth2 error:', session);
-        return res.json({
-          error: 'Failed to create session',
-          details: session,
-        });
-      }
-	  
+      if (!response.ok) throw session;
+
       log({
         sessionId: session.$id,
         userId: session.userId,
