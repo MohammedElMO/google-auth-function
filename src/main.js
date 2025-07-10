@@ -5,7 +5,7 @@ import { JWT, OAuth2Client } from 'google-auth-library';
 export default async ({ req, res, log, error }) => {
   // You can use the Appwrite SDK to interact with other services
   // For this example, we're using the Users service
-//   res.setHeader('Content-Type', 'application/json');
+  //   res.setHeader('Content-Type', 'application/json');
 
   try {
     const { idToken } = JSON.parse(req.body);
@@ -29,68 +29,52 @@ export default async ({ req, res, log, error }) => {
       return res.json({ error: 'Invalid Google ID token' });
     }
 
+    const email = payload.email;
+    const name = payload.name || '';
+    const googleUid = payload.sub;
+
     const appwriteClient = new Client()
       .setEndpoint(process.env.APPWRITE_FUNCTION_API_ENDPOINT)
       .setProject(process.env.APPWRITE_FUNCTION_PROJECT_ID)
       .setKey(process.env.APPWRITE_API_KEY);
 
-    const account = new Account(appwriteClient);
-
-    let oauthToken;
+    const users = new Users(appwriteClient);
+    let appwriteUser;
     try {
-      oauthToken = await account.createOAuth2Token(
-        OAuthProvider.Google,
-        process.env.SUCCESS_URL,
-        process.env.FAILED_URL,
-        []
-      );
-    } catch (e) {
-      console.error('Error creating OAuth2 token:', e);
-      return res.json({ error: 'Failed to create OAuth2 token' });
+      // If you use Google UID as the Appwrite User ID (optional)
+      appwriteUser = await users.get(googleUid);
+    } catch {
+      // User not found – create new user
+      try {
+        appwriteUser = await users.create(
+          googleUid,
+          email,
+          null, // No password for OAuth
+          null,
+          name
+        );
+      } catch (createErr) {
+        console.error('Failed to create Appwrite user:', createErr);
+        return res.json({
+          error: 'User creation failed',
+          detail: createErr.message,
+        });
+      }
     }
 
-    const { userId, secret } = oauthToken;
+    log({
+      sessionId: appwriteUser.$id,
+      email: appwriteUser.userId,
+      name: appwriteUser.name,
+      status: 'verified',
+    });
 
-	if (!userId || !secret) {
-    return res
-      .status(500)
-      .json({ error: 'Missing userId or secret from token' });
-  }
-    try {
-      const response = await fetch(
-        `${process.env.APPWRITE_FUNCTION_API_ENDPOINT}/account/sessions/token`,
-        {
-          method: 'POST',
-          headers: {
-            'X-Appwrite-Project': process.env.APPWRITE_FUNCTION_PROJECT_ID,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ userId, secret }),
-        }
-      );
-
-      const session = await response.json();
-      if (!response.ok) throw session;
-
-      log({
-        sessionId: session.$id,
-        userId: session.userId,
-        providerUid: session.providerUid,
-        emailVerified: session.emailVerification === true,
-      });
-      return res.json({
-        sessionId: session.$id,
-        userId: session.userId,
-        providerUid: session.providerUid,
-        emailVerified: session.emailVerification === true,
-      });
-    } catch (err) {
-      console.error('Appwrite session error:', err);
-      return res.json({
-        error: 'Failed to create Appwrite session',
-        message: err.message,
-      });
-    }
+    return res.json({
+      userId: appwriteUser.$id,
+      email: appwriteUser.email,
+      name: appwriteUser.name,
+      status: 'verified',
+    });
   } catch (e) {
     return res.json({
       error: `Failed To exec Function ${e}`,
