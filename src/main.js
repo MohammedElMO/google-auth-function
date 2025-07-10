@@ -25,7 +25,7 @@ export default async ({ req, res, log, error }) => {
       });
       payload = ticket.getPayload();
     } catch (err) {
-      console.error('Google token invalid:', err);
+      log('Google token invalid:' + err);
       return res.json({ error: 'Invalid Google ID token' });
     }
 
@@ -68,7 +68,7 @@ export default async ({ req, res, log, error }) => {
     const token = await users.createToken(appwriteUserId);
 
     // 4. Send token secret back to Android app
-    res.json({
+   return res.json({
       success: true,
       appwriteUserId: appwriteUserId,
       tokenSecret: token.secret,
