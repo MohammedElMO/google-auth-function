@@ -38,7 +38,7 @@ export default async ({ req, res, log, error }) => {
       .setProject(process.env.APPWRITE_FUNCTION_PROJECT_ID)
       .setKey(process.env.APPWRITE_API_KEY);
 
-    const users = Users(appwriteClient);
+    const users = new Users(appwriteClient);
 
     let appwriteUserId;
 
